@@ -36,39 +36,63 @@ type expectedOutputStruct struct {
 	Sha1 string `compscore:"sha1"`
 }
 
-func (e *expectedOutputStruct) Unmarshal(options map[string]string) error {
+func (e *expectedOutputStruct) Unmarshal(options map[string]interface{}) error {
 	_, ok := options["exists"]
 	if ok {
 		e.Exists = true
 	}
 
-	substringMatch, ok := options["substring_match"]
+	substringMatchInterface, ok := options["substring_match"]
 	if ok {
+		substringMatch, ok := substringMatchInterface.(string)
+		if !ok {
+			return fmt.Errorf("substring_match must be a string")
+		}
 		e.SubstringMatch = substringMatch
 	}
 
-	regexMatch, ok := options["regex_match"]
+	regexMatchInterface, ok := options["regex_match"]
 	if ok {
+		regexMatch, ok := regexMatchInterface.(string)
+		if !ok {
+			return fmt.Errorf("regex_match must be a string")
+		}
 		e.RegexMatch = regexMatch
 	}
 
-	match, ok := options["match"]
+	matchInterface, ok := options["match"]
 	if ok {
+		match, ok := matchInterface.(string)
+		if !ok {
+			return fmt.Errorf("match must be a string")
+		}
 		e.Match = match
 	}
 
-	sha256, ok := options["sha256"]
+	sha256Interface, ok := options["sha256"]
 	if ok {
+		sha256, ok := sha256Interface.(string)
+		if !ok {
+			return fmt.Errorf("sha256 must be a string")
+		}
 		e.Sha256 = sha256
 	}
 
-	md5, ok := options["md5"]
+	md5Interface, ok := options["md5"]
 	if ok {
+		md5, ok := md5Interface.(string)
+		if !ok {
+			return fmt.Errorf("md5 must be a string")
+		}
 		e.Md5 = md5
 	}
 
-	sha1, ok := options["sha1"]
+	sha1Interface, ok := options["sha1"]
 	if ok {
+		sha1, ok := sha1Interface.(string)
+		if !ok {
+			return fmt.Errorf("sha1 must be a string")
+		}
 		e.Sha1 = sha1
 	}
 
@@ -133,7 +157,7 @@ func (e *expectedOutputStruct) Compare(resp *ftp.Response) error {
 	return nil
 }
 
-func Run(ctx context.Context, target string, command string, expectedOutput string, username string, password string, options map[string]string) (bool, string) {
+func Run(ctx context.Context, target string, command string, expectedOutput string, username string, password string, options map[string]interface{}) (bool, string) {
 	if !strings.Contains(target, ":") {
 		target = target + ":21"
 	}
