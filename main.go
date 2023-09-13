@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"regexp"
@@ -11,6 +14,9 @@ import (
 )
 
 type expectedOutputStruct struct {
+	// Check if file exists
+	Exists bool `compscore:"exists"`
+
 	// Check if contents of file matches a substring
 	SubstringMatch string `compscore:"substring_match"`
 
@@ -34,11 +40,22 @@ func (e *expectedOutputStruct) Unmarshal(in string) error {
 	structLookup := make(map[string]string)
 	split := strings.Split(in, ";")
 	for _, item := range split {
+		if item == "exists" || item == "" {
+			e.Exists = true
+			continue
+		}
+
 		itemSplit := strings.Split(item, "=")
 		if len(itemSplit) != 2 {
 			return fmt.Errorf("invalid parameter string: %s", item)
 		}
+
 		structLookup[strings.TrimSpace(itemSplit[0])] = strings.TrimSpace(itemSplit[1])
+	}
+
+	_, ok := structLookup["exists"]
+	if ok {
+		e.Exists = true
 	}
 
 	substringMatch, ok := structLookup["substring_match"]
@@ -108,6 +125,27 @@ func (e *expectedOutputStruct) Compare(resp *ftp.Response) error {
 		}
 	}
 
+	if e.Sha256 != "" {
+		hash := fmt.Sprintf("%x", sha256.Sum256(bodyBytes))
+		if hash != e.Sha256 {
+			return fmt.Errorf("sha256 mismatch: expected \"%s\", \"%s\"", e.Sha256, hash)
+		}
+	}
+
+	if e.Md5 != "" {
+		hash := fmt.Sprintf("%x", md5.Sum(bodyBytes))
+		if hash != e.Md5 {
+			return fmt.Errorf("md5 mismatch: expected \"%s\", \"%s\"", e.Md5, hash)
+		}
+	}
+
+	if e.Sha1 != "" {
+		hash := fmt.Sprintf("%x", sha1.Sum(bodyBytes))
+		if hash != e.Sha1 {
+			return fmt.Errorf("sha1 mismatch: expected \"%s\", \"%s\"", e.Sha1, hash)
+		}
+	}
+
 	return nil
 }
 
@@ -144,13 +182,13 @@ func Run(ctx context.Context, target string, command string, expectedOutput stri
 	}
 	defer resp.Close()
 
-	expectedOutputStruct := &expectedOutputStruct{}
-	err = expectedOutputStruct.Unmarshal(expectedOutput)
+	output := &expectedOutputStruct{}
+	err = output.Unmarshal(expectedOutput)
 	if err != nil {
 		return false, fmt.Sprintf("failed to parse expected output: %s", err)
 	}
 
-	err = expectedOutputStruct.Compare(resp)
+	err = output.Compare(resp)
 	if err != nil {
 		return false, fmt.Sprintf("failed to compare expected output: %s", err)
 	}
